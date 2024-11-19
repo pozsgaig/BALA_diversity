@@ -1,0 +1,2089 @@
+---
+title: "Stability in the Face of Global Decline: A 20-Year Study of Arthropods in an Oceanic Archipelago"
+output: 
+    bookdown::html_document2:
+        number_sections: false
+        fig_caption: true
+        toc: yes
+        toc_depth: 5
+        toc_float: yes
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "../Plots"
+    )
+  })
+params:
+    show: FALSE  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(tidy = TRUE, tidy.opts = list(comment = FALSE))
+options(dplyr.summarise.inform = FALSE)
+options(warn=0)
+```
+
+```{r load-libraries, include=FALSE}
+library(tidyverse)
+library(rstatix) # for cohens_d
+library(tidytext) # for reorder_within for factor reordering with facet_wrap
+library(DT)
+library(RColorBrewer)
+library(openxlsx)
+library(reshape2)
+library(wesanderson)
+library(ggpubr)
+library(ggarrow)
+library(ggallin)
+library(psych)
+library(kableExtra)
+
+mutate<-dplyr::mutate
+summarise<-dplyr::summarise
+```
+
+```{r functions}
+is_zero<-function(x){t.test(x, mu = 0)$p.value}
+
+# Calculates Cohen D-s but also deals with zero changes and insufficient amount of data
+cohen_G<-function(x, col){
+    out<-NULL
+
+    for(n in unlist(unique(x[,"MF"])))
+    {
+
+        dat<-x %>% filter(MF == n)
+        ems<-unlist(unique(dat[, "establishmentmeans"]))
+        rownum<-sum(dat[, col])
+        
+        if(rownum == 0){
+            line<-c(.y. = col, group1 = 1, group2 = "null model", effsize = 0, MF = n, 
+                    establishmentmeans = ems,
+                    n = nrow(dat), conf.low = 0, conf.high = 0, magnitude = NA)
+            out<-rbind(out, line)
+        }
+        
+        else if(!rownum == 0 & 
+                nrow(dat[!dat[,col]==0, ])<5){
+            line<-c(.y. = col, group1 = 1, group2 = "null model", effsize = NA, MF = n,
+                    establishmentmeans = ems,
+                    n = nrow(dat), conf.low = NA, conf.high = NA, magnitude = NA)
+            out<-rbind(out, line)
+        }
+        else
+        {
+            set.seed(123)
+            form<-as.formula(paste(col, "~ 1"))
+            
+            line <- try(cohens_d(formula = form, mu = 0, ci = T, data = dat),
+                       silent = TRUE)
+            if(any(class(line) == "try-error"))
+            {line<-c(.y. = col, group1 = 1, group2 = "null model", effsize = NA, MF = n,
+                     establishmentmeans = ems,
+                     n = nrow(dat), conf.low = NA, conf.high = NA, magnitude = NA)}
+            out<-rbind(out, line)
+        }
+        
+    }
+    as_tibble(out)}
+
+
+
+NA20<- function(x)
+{
+    x[is.na(x)]<-0
+    x}
+
+
+source("trend_plots_function.R")
+```
+
+```{r load-data}
+load("../Raw_data/All_BALA_data.RDA")
+load("../Raw_data/conservation_spp.RDA")
+
+
+# long processes, data is saved and loaded
+if (file.exists("../Calculated_data/all_trend_results.RDA")) {
+    load("../Calculated_data/all_trend_results.RDA")
+} else {
+    source("trends_wrapper.R")
+}
+
+if (file.exists("../Calculated_data/simulation_df.RDA")) {
+    load("../Calculated_data/simulation_df.RDA")
+} else {
+    source("removing_data_points_simulation.R")
+}
+
+
+
+```
+
+```{css style, echo=FALSE}
+p.caption {
+font-weight: bold;
+}
+table.caption {
+font-weight: bold;
+}
+.main-container {
+  max-width: 100% !important;
+  margin: auto;
+}
+```
+
+\
+Gabor Pozsgai^1\*^, Pedro Cardoso^2,3^, Simone Fattorini^4^, François Rigal^1,5^, Ana M.C. Santos^1,6,7^, Robert Whittaker^8,9^, Isabel R. Amorim^1,10^, Mário Boieiro^1,3,10^, Luís Borda-de-Água^11,12,13^, Ricardo Costa^1,3^, Luís Carlos Crespo^1,3^, Maria Teresa Ferreira^14^, Abrão Leite^15^, Sébastien Lhoumeau^1^, Thomas J. Matthews^1,16^, Jagoba Malumbres-Olarte^1,3^, Catarina Melo^1^, Guilherme Oyarzabal^1^, Fernando Pereira^1^, José A. Quartau^2^, Carla Rego^2,3,10^, Sérvio Ribeiro^17^, Alejandra Ros-Prieto^1^, Artur R.M. Serrano^2,3^, Kostas A. Triantis^18^, Rosalina Gabriel^1^ & Paulo A. V. Borges^1,10,19^
+
+^1^University of the Azores, CE3C - Centre for Ecology, Evolution and Environmental Changes & CHANGE - Global Change and Sustainability Institute, Rua Capitão João d´Ávila, Pico da Urze, 9700-042, Angra do Heroísmo, Portugal.
+
+^2^CE3C- Centre for Ecology, Evolution and Environmental Changes, CHANGE – Global Change and Sustainability Institute, Faculty of Sciences, University of Lisbon, Lisbon, Portugal.
+
+^3^LIBRe – Laboratory for Integrative Biodiversity Research, Finnish Museum of Natural History, University of Helsinki, P.O.Box 17 (Pohjoinen Rautatiekatu 13), 00014 Helsinki, Finland.
+
+^4^Department of Life, Health and Environmental Sciences, University of L’Aquila, Via Vetoio, 67100, L’Aquila, Italy.
+
+^5^Institut Des Sciences Analytiques et de Physico Chimie pour L’environnement et les Materiaux UMR5254, Comité National de la Recherche Scientifique - University de Pau et des Pays de l’Adour - E2S UPPA, Pau, France.
+
+^6^Terrestrial Ecology Group (TEG-UAM), Departamento de Ecología, Universidad Autónoma de Madrid, 28049 Madrid, Spain.
+
+^7^Centro de Investigación en Biodiversidad y Cambio Global (CIBC-UAM), Universidad Autónoma de Madrid, 28049 Madrid, Spain.
+
+^8^School of Geography and the Environment, University of Oxford, South Parks Road, Oxford OX1 3QY, UK.
+
+^9^Center for Macroecology, Evolution and Climate, GLOBE Institute, University of Copenhagen, Universitetsparken 15, 2100 Copenhagen, Denmark.
+
+^10^IUCN SSC Atlantic Islands Invertebrates Specialist Group, 9700-042 Angra do Heroísmo, Azores, Portugal.
+
+^11^CIBIO, Centro de Investigação em Biodiversidade e Recursos Genéticos, InBIO Laboratório Associado, Campus de Vairão, Universidade do Porto, 4485-661 Vairão, Portugal
+
+^12^CIBIO, Centro de Investigação em Biodiversidade e Recursos Genéticos, InBIO Laboratório Associado, Instituto Superior de Agronomia, Universidade de Lisboa, 1349-017 Lisboa, Portugal
+
+^13^BIOPOLIS Program in Genomics, Biodiversity and Land Planning, CIBIO, Campus de Vairão, 4485-661 Vairão, Portugal
+
+^14^Regional Secretariat of Environment and Climate Action, Project LIFE BEETLES (LIFE 18NAT/PT/000864), Rua do Galo n118, 9700-040, Angra do Heroísmo, Azores, Portugal.
+
+^15^Rua Fernando Pessoa, nº99 R/C DTO 2765-483 Estoril, Portugal.
+
+^16^GEES (School of Geography, Earth and Environmental Sciences) and Birmingham Institute of Forest Research, University of Birmingham, Birmingham, B15 2TT, UK.
+
+^17^Laboratório de Ecologia do Adoecimento e Florestas, NUPEB, Instituto de Ciências Exatas e Biológicas, Universidade Federal de Ouro Preto, Campus Morro do Cruzeiro, 35400-000, Ouro Preto, MG, Brazil.
+
+^18^Department of Ecology and Taxonomy, Faculty of Biology, National and Kapodistrian University of Athens, Athens GR-15784, Greece.
+
+^19^IUCN SSC Species Monitoring Specialist Group, 9700-042 Angra do Heroísmo, Azores, Portugal.
+
+\
+
+# All biodiversity trends
+\
+
+```{r biodiversity-trends-table, results='asis'}
+
+cat("<table width=100%>", paste0("<caption>", 
+                                 "(#tab:biodiversity-trends-table)", 
+                                 "Changes of abundances, biomasses, and richnesses between sampling campaigns in Azorean native forests. Rows are colour coded according to the directionality of changes: blue hues represent significant declines, orange colours represent significant increases. Non-significant changes (e.g. when confidence intervals cross zero) are indicated with light grey rows. The magnitude of changes is indicated with colour depth, increasing from small
+(representing a Cohan’s d value between 0.2 and 0.5), through medium (Cohan’s d value
+between 0.5-0.7) to a large change (Cohan’s d > 0.7). Columns of the table can be sorted and filtered",
+                                 "</caption>"),"</table>", sep ="\n")
+
+options(DT.options = list(pageLength = 30, autoWidth = T,
+                          # order = list(list(1, "asc"), 
+                          #              list(2, "asc"),
+                          #              list(3, "asc"),
+                          #              list(4, "asc"),
+                          #              list(5, "asc")),
+                          dom = "tip"))
+all_trend_results |> 
+    select(-p_val) |> 
+    mutate(measure = case_when(measure=="abu" ~ "abundance",
+                               measure=="EXO_abu_prop" ~ "introduced abundance proportion",
+                               measure=="END_abu_prop" ~ "endemic abundance proportion",
+                               measure=="EXO_biomass_prop" ~ "introduced biomass proportion",
+                               measure=="END_biomass_prop" ~ "endemic biomass proportion",
+                               measure=="EXO_richness_prop" ~ "introduced richness proportion",
+                               measure=="END_richness_prop" ~ "endemic richness proportion",
+                               TRUE ~ measure),
+           sampling_method = case_when(sampling_method == "Pitfall" ~ "ground",
+                                       sampling_method == "Beating" ~ "canopy"),
+           comparison = case_when(comparison == "B1_B2" ~ "B1 - B2",
+                                  comparison == "B1_B3" ~ "B1 - B3",
+                                  comparison == "B2_B3" ~ "B2 - B3"),
+           spp_set = case_when(spp_set == "EXO" ~ "introduced",
+                               spp_set == "END" ~ "endemic",
+                               spp_set == "NAT" ~ "native",
+                               TRUE ~ spp_set),
+           effsize = round(effsize, 2))|>
+    mutate(measure = as.factor(measure),
+           spp_set = as.factor(spp_set),
+           sampling_method = as.factor(sampling_method),
+           comparison = as.factor(comparison)) |> 
+    arrange(measure, spp_set, comparison, sampling_method, effsize) |> 
+datatable(rownames = FALSE,
+          colnames = c("measure", "biogeographic origin", 
+                       "comparison", "stratum", "effect size", 
+                       "magnitude", "confidnece low", "confidence high"),
+          filter = "top",
+          options = list(order = list(list(0, "asc"),
+                                      list(1, "asc"), 
+                                      list(2, "asc"),
+                                      list(3, "asc"),
+                                      list(4, "asc")
+                                       )))|> 
+    formatStyle("effsize",
+                target = 'row',
+                backgroundColor = styleInterval(c(-0.799, -0.499, -0.199, 0.199, 0.499, 0.799), 
+                                                         rev(brewer.pal(7, "RdBu"))))
+```
+
+```{asis fig-2-text, echo = params$show}
+## Figure 2
+```
+
+```{r figure-2, fig.dim=c(10, 12), include = params$show}
+#|  fig.cap = 
+#|  " Summary of changes in abundance-based proportions (A-B), biomass-based proportions (C-D), and richness-based proportions (E-F) of endemic (END) and introduced (EXO) species between BALA sampling campaigns. The proportion (from top to bottom) of endemic (END) and introduced (EXO) species in the communities are shown in the barplots. The colours in the barplots, representing biogeographic origins (refer to legend), also correspond to the dots along the thin lines that indicate changes for each group (excluding unknown origins). The arrows indicate the direction of comparison and their colour indicates the overall changes. Changes are standardised to time unit (year) and compared to a ‘zero change’ null model. Change was considered statistically not significant when confidence intervals crossed zero. The magnitude of change is indicated with colour depth, increasing from small (representing a Cohan’s d value between 0.2 and 0.5), through medium (Cohan’s d value between 0.5-0.7) to a large change (Cohan’s d > 0.7)."
+
+# Chategories for Cohen D values
+magn_alpha <-
+    structure(c(0.1, 0.3, 0.6, 1), names = c("negligible", "small", "moderate", "large"))
+
+# setting the order for plotting
+count_data$establishmentmeans<-factor(count_data$establishmentmeans, 
+                                      levels = c("END", "NAT", "EXO", "UnK"))
+
+# setting the palette for the groups
+origin_cols<-wes_palette("Darjeeling1", n = 4)
+origin_cols[3]<-"darkgrey" # a more neutral colour for the unknowns
+names(origin_cols)<-levels(count_data$establishmentmeans)[c(3,1,4,2)]
+
+# Since the plot is a result of severla subplots, it is difficult to get a legend with them
+# Therefore, we make two dummy plots, based on dummy datasets, get their legends and use the
+# combination of the two legends as a combined legend in our plot.
+
+# make dummy data frame for biogeography group colours
+dummy_df_1<-data.frame(cols = origin_cols, 
+                     col_names = names(origin_cols), 
+                     values = rep(10, 4))
+
+# plot to get legend
+dummy1<-ggplot(dummy_df_1, aes(x = "", y = values, fill = col_names)) +
+    geom_bar(position = "stack", stat = "identity") +
+    scale_fill_manual(values = origin_cols, name = "Biogeographic origin")+
+    theme(legend.position = "bottom",
+          legend.title.position = "top")
+
+dummy1_legend<-get_legend(dummy1)
+
+
+
+# make dummy data frame for trend colours
+
+trendcols = c("#d55e00","#0072b2", "cornsilk4")
+names(trendcols)<-c("increase", "decline", "no change")
+
+dummy_df_2<-data.frame(expand.grid(names(magn_alpha), names(trendcols)[1:2]))
+dummy_df_2$magn<-magn_alpha[dummy_df_2$Var1]
+dummy_df_2$trend<-trendcols[dummy_df_2$Var2]
+dummy_df_2$label<-paste(dummy_df_2$Var1, dummy_df_2$Var2)
+dummy_df_2$Var1<-as.character(dummy_df_2$Var1)
+dummy_df_2$Var2<-as.character(dummy_df_2$Var2)
+
+# no negligible but significant changes
+dummy_df_2<-dummy_df_2 %>% filter(Var1 != "negligible")
+
+dummy_df_2<-rbind(dummy_df_2,
+                  c("negligible", "no change", 0.1, "cornsilk4", "no change"))
+dummy_df_2$x<-1:nrow(dummy_df_2)
+
+allcols<-apply(dummy_df_2, 1, function(x) adjustcolor(x["trend"], 
+                                             alpha.f = x["magn"]))
+names(allcols)<-dummy_df_2$label
+
+dummy_df_2$label<-factor(dummy_df_2$label, 
+                         ordered = T, 
+                         levels = dummy_df_2$label[c(3,2,1,7,4,5,6)])
+
+dummy2<-ggplot(dummy_df_2, aes(x = x, y = 3, 
+                               color = label))+
+    geom_segment(
+        aes(xend = x + 0.2, yend = 5),  # Add slight offset to create the arrow direction
+        arrow = arrow(length = unit(0.2, "cm")),  # Customize arrow length
+        size = 1.5
+    )+
+    scale_color_manual(values = allcols, name = "Trend")+
+    guides(color = guide_legend(
+        override.aes = list(size = 1), 
+                            ncol = 1,  # Arrange legend in a single row
+        title.position = "top",        # Position title at the top
+        label.position = "right"       # Position labels at the bottom
+    ))+
+    theme_minimal() +
+    theme(legend.position = "right",
+          legend.key.spacing.y = unit(1, "mm"))
+
+
+dummy2_legend<-get_legend(dummy2)
+
+
+# getting the legends and final plotting
+combined_legend<-ggarrange(dummy1_legend, dummy2_legend, ncol = )
+
+
+
+
+cdat<-count_data |> 
+    mutate(sampling_method = case_when(sampling_method == "Pitfall" ~ "ground",
+                                       sampling_method == "Beating" ~ "canopy"))
+
+bdat<-biomass_data |> 
+    mutate(sampling_method = case_when(sampling_method == "Pitfall" ~ "ground",
+                                       sampling_method == "Beating" ~ "canopy"))
+
+all_trend_plots<-list(
+    trend_plots(cdat, "abundance", "canopy",
+                origin_cols = origin_cols),
+    trend_plots(cdat, "abundance", "ground",
+                origin_cols = origin_cols),
+    trend_plots(bdat, "biomass", "canopy",
+                origin_cols = origin_cols),
+    trend_plots(bdat, "biomass", "ground",
+                origin_cols = origin_cols),
+    trend_plots(cdat, "richness", "canopy",
+                origin_cols = origin_cols),
+    trend_plots(cdat, "richness", "ground",
+                origin_cols = origin_cols))
+
+fig_2<-ggarrange(ggarrange(plotlist = all_trend_plots, nrow = 3, ncol = 2,
+                           legend.grob = dummy2_legend, legend = "right", labels = LETTERS[1:6]),
+                 legend.grob = dummy1_legend, legend = "bottom")
+
+print(fig_2)
+
+ggsave("../Plots/all_trend_plots_2.pdf", fig_2,
+       width = 10, height = 12)
+
+ggsave("../Plots/all_trend_plots.png", fig_2,
+       width = 10, height = 12)
+
+
+```
+
+\
+\
+
+```{r supplementary-figure-1, fig.dim = c(10, 12), fig.cap= "Summary of changes in the abundance (A-B), biomass (C-D), and richness (E-F) proportions of endemic (END) and introduced (EXO) species between BALA sampling campaigns (B1-B3) in arboreal (A, C, E) and epigeal (B, D, F) communities. The proportion (from top to bottom) of endemic and exotic species are shown in the barplots. Dots in the thin lines using the same colour codes indicate the changes for each group. The arrows indicate the direction of comparison and their colour indicates the overall changes. Changes are standardised to time unit (year) and compared to a ‘zero change’ null model. Change was considered statistically not significant when confidence intervals crossed zero. The magnitude of change is indicated with colour depth, increasing from small (representing a Cohan’s d value between 0.2 and 0.5), through medium (Cohan’s d value between 0.5-0.7) to a large change (Cohan’s d > 0.7)."}
+
+prop_trend_plots<-list(
+    trend_plots_prop(cdat, "abundance", "canopy",
+                origin_cols = origin_cols),
+    trend_plots_prop(cdat, "abundance", "ground",
+                origin_cols = origin_cols),
+    trend_plots_prop(bdat, "biomass", "canopy",
+                origin_cols = origin_cols),
+    trend_plots_prop(bdat, "biomass", "ground",
+                origin_cols = origin_cols),
+    trend_plots_prop(cdat, "richness", "canopy",
+                origin_cols = origin_cols),
+    trend_plots_prop(cdat, "richness", "ground",
+                origin_cols = origin_cols))
+
+SM_fig_1<-ggarrange(ggarrange(plotlist = prop_trend_plots, nrow = 3, ncol = 2,
+                           legend.grob = dummy2_legend, legend = "right", labels = LETTERS[1:6]),
+                 legend.grob = dummy1_legend, legend = "bottom")
+print(SM_fig_1)
+
+ggsave("../Plots/prop_trend_plots.pdf", SM_fig_1,
+       width = 10, height = 12)
+
+```
+
+# Species trends
+
+```{r species-trends-data-prep-general}
+
+count_data$SP<-ifelse(count_data$taxonrank=="subspecies",
+                      paste(count_data$genus, 
+                            count_data$specificepithet, 
+                            count_data$infraspecificepithet),
+                      paste(count_data$genus, 
+                            count_data$specificepithet))
+
+count_data$SP[count_data$SP=="Gen. sp."]<-paste(count_data[count_data$SP=="Gen. sp.", "family"], "indet.")
+
+
+FDE_spp<-unique(FDE_taxonomy$MF)
+SIE_spp<-unique(SIE_taxonomy$MF)
+
+```
+
+```{r species-trends-data-prep-beating}
+beating_spp<-count_data %>% 
+    filter(sampling_method=="Beating") %>% 
+    group_by(project, MF) %>% 
+    summarise(presence = n_distinct(site_code)) %>% 
+    pivot_wider(names_from = project, values_from = presence) %>% 
+    # filter(if_all(where(is.numeric), ~ .x>4)) %>% 
+    pull(MF)
+
+
+beating_year_diffs<-count_data %>% 
+    filter(sampling_method=="Beating") %>%
+    group_by(site_code) %>% 
+    mutate(B1_B2_year_diff = unique(year[project == "BALA2"]) - unique(year[project == "BALA1"]),
+           B1_B3_year_diff = unique(year[project == "BALA3"]) - unique(year[project == "BALA1"]),
+           B2_B3_year_diff = unique(year[project == "BALA3"]) - unique(year[project == "BALA2"])) %>% 
+    select(site_code, B1_B2_year_diff, B1_B3_year_diff, B2_B3_year_diff) %>% 
+    unique()
+
+
+
+beating_spp_trends<-count_data %>% 
+    filter(sampling_method=="Beating") %>% 
+    group_by(MF, establishmentmeans, project, site_code) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(MF, establishmentmeans) %>% 
+    mutate(MF_max = max(abu)) %>%
+    pivot_wider(names_from = project, values_from = c(abu)) %>% 
+    mutate(across(c(BALA1, BALA2, BALA3), NA20)) %>% 
+    filter(sum(BALA1, BALA2, BALA3)>0) %>% 
+    mutate(B1_B2_val_diff = BALA2 - BALA1,
+           B1_B3_val_diff = BALA3 - BALA1,
+           B2_B3_val_diff = BALA3 - BALA2,
+           B1_B2_std_diff = (BALA2 - BALA1)/MF_max,
+           B1_B3_std_diff = (BALA3 - BALA1)/MF_max,
+           B2_B3_std_diff = (BALA3 - BALA2)/MF_max) %>% 
+    left_join(beating_year_diffs, by = "site_code") %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+
+beating_spp_abu_changes<-beating_spp_trends %>%
+    ungroup() %>%
+    group_by(MF, establishmentmeans, site_code) %>% 
+    filter(sum(BALA1 ,BALA2, BALA3)>2) |> 
+    select(MF, establishmentmeans, site_code,
+           B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(MF, establishmentmeans) %>% 
+    select(-site_code) %>% 
+    NA20()
+
+
+B1_B2<-beating_spp_abu_changes %>%  
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    cohen_G(col = "B1_B2__yearly_change") %>% 
+    #cohens_d(B1_B2__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+B1_B3<-beating_spp_abu_changes %>% 
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    # filter(n()>5 & !sum(B1_B2__yearly_change)==0) %>% 
+    # cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    cohen_G(col = "B1_B3__yearly_change") %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+B2_B3<-beating_spp_abu_changes %>%   
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    # filter(n()>5 & !sum(B1_B2__yearly_change)==0) %>% 
+    # cohens_d(B2_B3__yearly_change ~ 1, mu = 0, ci = T)%>% 
+    cohen_G(col = "B2_B3__yearly_change") %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+dat<-rbind(B1_B2, B1_B3, B2_B3)
+
+
+beating_trend_results<-data.frame(sampling_method = "Beating", dat)
+
+```
+
+```{r species-trends-data-prep-pitfall}
+
+pitfall_spp<-count_data %>% 
+    filter(sampling_method=="Pitfall") %>% 
+    group_by(project, MF) %>% 
+    summarise(presence = n_distinct(site_code)) %>% 
+    pivot_wider(names_from = project, values_from = presence) %>% 
+    # filter(if_all(where(is.numeric), ~ .x>4)) %>% 
+    pull(MF)
+
+pitfall_year_diffs<-count_data %>% 
+    filter(sampling_method=="Pitfall") %>%
+    group_by(site_code) %>% 
+    mutate(B1_B2_year_diff = unique(year[project == "BALA2"]) - unique(year[project == "BALA1"]),
+           B1_B3_year_diff = unique(year[project == "BALA3"]) - unique(year[project == "BALA1"]),
+           B2_B3_year_diff = unique(year[project == "BALA3"]) - unique(year[project == "BALA2"])) %>% 
+    select(site_code, B1_B2_year_diff, B1_B3_year_diff, B2_B3_year_diff) %>% 
+    unique() 
+
+
+pitfall_spp_trends<-count_data %>% 
+    filter(sampling_method=="Pitfall") %>% 
+    group_by(MF, establishmentmeans, project, site_code) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(MF, establishmentmeans) %>% 
+    mutate(MF_max = max(abu)) %>%
+    pivot_wider(names_from = project, values_from = c(abu)) %>% 
+    mutate(across(c(BALA1, BALA2, BALA3), NA20)) %>% 
+    filter(sum(BALA1, BALA2, BALA3)>0) %>% 
+    mutate(B1_B2_val_diff = BALA2 - BALA1,
+           B1_B3_val_diff = BALA3 - BALA1,
+           B2_B3_val_diff = BALA3 - BALA2,
+           B1_B2_std_diff = (BALA2 - BALA1)/MF_max,
+           B1_B3_std_diff = (BALA3 - BALA1)/MF_max,
+           B2_B3_std_diff = (BALA3 - BALA2)/MF_max) %>% 
+    left_join(pitfall_year_diffs, by = "site_code") %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+pitfall_spp_abu_changes<-pitfall_spp_trends %>%
+    ungroup() %>%
+    group_by(MF, establishmentmeans, site_code) %>% 
+    filter(sum(BALA1 ,BALA2, BALA3)>2) |> 
+    select(MF, establishmentmeans, site_code,
+           B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    summarise_at(vars(B1_B2__yearly_change, B1_B3__yearly_change,B2_B3__yearly_change), 
+                 mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>%
+    group_by(MF, establishmentmeans) %>% 
+    select(-site_code) %>% 
+    NA20()
+
+
+B1_B2<-pitfall_spp_abu_changes %>%  
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    # filter(n()>5 & !sum(B1_B2__yearly_change)==0) %>% 
+    # cohens_d(B1_B2__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    cohen_G(col = "B1_B2__yearly_change") %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+B1_B3<-pitfall_spp_abu_changes %>% 
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    # filter(n()>5 & !sum(B1_B2__yearly_change)==0) %>% 
+    # cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    cohen_G(col = "B1_B3__yearly_change") %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+B2_B3<-pitfall_spp_abu_changes %>%   
+    group_by(MF, establishmentmeans) %>% 
+    filter(n()>3) %>% 
+    cohen_G(col = "B2_B3__yearly_change") %>% 
+    # filter(n()>5 & !sum(B1_B2__yearly_change)==0) %>% 
+    # cohens_d(B2_B3__yearly_change ~ 1, mu = 0, ci = T)%>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, MF, establishmentmeans, effsize, n, magnitude, conf.low, conf.high)
+
+dat<-rbind(B1_B2, B1_B3, B2_B3)
+pitfall_trend_results<-data.frame(sampling_method = "Pitfall", dat)
+
+```
+
+```{r species-trends-data-prep-final}
+
+all_sp_trend_results<-rbind(beating_trend_results, pitfall_trend_results)
+all_sp_trend_results$SIE<-all_sp_trend_results$MF %in% SIE_spp
+all_sp_trend_results$FDE<-all_sp_trend_results$MF %in% FDE_spp
+
+all_sp_trend_results<-all_sp_trend_results |> 
+    left_join(unique(count_data |> select(MF, SP)), by = "MF")
+
+    
+```
+
+```{r species-trends-table, results='asis', echo=FALSE}
+
+
+cat("<table width=100%>",
+    paste0("<caption>", 
+           "(#tab:species-trends-table)", 
+           "Changes of abundances, biomasses, and richnesses between sampling campaigns in Azorean native forests. Rows are colour coded according to the directionality of changes: blue hues represent significant declines, orange colours represent significant increases. Non-significant changes (e.g. when confidence intervals cross zero) are indicated with light grey rows. The magnitude of changes is indicated with colour depth, increasing from small
+(representing a Cohan’s d value between 0.2 and 0.5), through medium (Cohan’s d value
+between 0.5-0.7) to a large change (Cohan’s d > 0.7). Columns of the table can be sorted and filtered", 
+           "</caption>"),"</table>", sep ="\n")
+ 
+
+all_sp_trend_results |> 
+    # making data more readable
+    mutate(sampling_method = case_when(sampling_method == "Pitfall" ~ "ground",
+                                       sampling_method == "Beating" ~ "canopy"),
+           comparison = case_when(comparison == "B1_B2" ~ "B1 - B2",
+                                  comparison == "B1_B3" ~ "B1 - B3",
+                                  comparison == "B2_B3" ~ "B2 - B3"),
+           establishmentmeans = case_when(establishmentmeans == "EXO" ~ "introduced",
+                                          establishmentmeans == "END" ~ "endemic",
+                                          establishmentmeans == "NAT" ~ "native",
+                                          establishmentmeans == "UnK" ~ "unknown",
+                                          TRUE ~ establishmentmeans),
+           effsize = round(as.numeric(effsize), 2))|>
+    mutate(establishmentmeans = as.factor(establishmentmeans),
+           sampling_method = as.factor(sampling_method),
+           comparison = as.factor(comparison),
+           conf.low = as.numeric(conf.low),
+           conf.high = as.numeric(conf.high),
+           n = as.numeric(n)) |> 
+    select("MF", "SP", "n", "establishmentmeans", 
+           "SIE", "FDE", "sampling_method", "comparison",
+           "effsize", "conf.low", "conf.high", "magnitude" ) |> 
+    arrange(establishmentmeans, comparison, sampling_method, effsize) |> 
+    # generating table
+    datatable(rownames = FALSE,
+              colnames = c("morphospecies code", "species name", 
+                           "collected individuals", "biogeographic origin", 
+                           "SIE", "FDE", "stratum", "comparison",
+                           "effect size", "confidence low", "confidence high", 
+                           "magnitude"),
+              filter = "top",
+              options = list(order = list(list(8, "desc"))))|> 
+    formatStyle("effsize",
+                target = 'row',
+                backgroundColor = styleInterval(c(-0.799, -0.499, -0.199, 0.199, 0.499, 0.799), 
+                                                rev(brewer.pal(7, "RdBu"))))
+
+
+```
+
+```{asis fig-3-text, echo = params$show}
+## Figure 3
+```
+
+```{r figure-3, fig.cap="Figure 3 from paper", fig.dim=c(12,8), include = params$show}
+all_sp_trend_results<-all_sp_trend_results |> 
+    mutate(trend = factor(case_when(conf.low > 0 & conf.high > 0 ~ "Increase",
+                                    conf.low < 0 & conf.high < 0 ~ "Decrease",
+                                    is.na(effsize) ~ NA,
+                                    .default = "No change"),
+                          ordered = T, levels = c("Decrease", "No change", "Increase")),
+           comparison = as.factor(case_when(comparison == "B1_B2" ~ "B1 - B2",
+                                  comparison == "B1_B3" ~ "B1 - B3",
+                                  comparison == "B2_B3" ~ "B2 - B3")))
+
+all_sp_trend_results$trend<-factor(all_sp_trend_results$trend, ordered = T, 
+                           levels = rev(levels(all_sp_trend_results$trend)))
+
+all_sp_trend_results$comparison<-factor(all_sp_trend_results$comparison, ordered = T,
+                                        levels = c("B1 - B3", "B1 - B2", "B2 - B3"))
+
+all_sp_trend_results$effsize<-as.numeric(all_sp_trend_results$effsize)
+
+
+fig_3<-all_sp_trend_results |> 
+    filter(!establishmentmeans == "UnK") |> 
+    filter(!is.na(trend)) |> 
+    ggplot(aes(y = effsize, x = establishmentmeans))+
+    geom_violin(data = .%>% filter(!trend == "No change"), 
+                position = "identity", 
+                aes(color = trend, fill = trend), alpha = 0.3,
+                scale = "width",
+                trim = FALSE,
+                drop = FALSE)+
+    geom_point(aes(color = trend, alpha = trend), position = position_jitter(width = 0.05), 
+               size = 3, shape = 16) +
+    facet_wrap(ncol = 3, vars(comparison), drop = T, scales = "fixed")+
+    scale_alpha_manual(values = c(0.7,0.4,0.7), name = "Trend", 
+                       labels = c("Increase", "No change", "Decrease"))+
+    scale_color_manual(values = c("#d55e00","#0072b2", "cornsilk4"), 
+                       labels = c("Increase", "Decrease", "No change"), name = "Trend")+
+    scale_fill_manual(values = c("#d55e00","#0072b2"), name = "Trend")+
+    guides(fill = "none", alpha = "none", 
+           color = guide_legend(override.aes = list(
+               color = c(adjustcolor("#d55e00", alpha.f = 0.7),
+                         adjustcolor("#0072b2", alpha.f = 0.7),
+                         adjustcolor("cornsilk4", alpha.f = 0.4)
+                         )))) +
+    theme_bw() +
+    labs(x = "Biogeographic origin", y = "Cohen's d")+
+    theme(text = element_text(size = 15))
+
+print(fig_3)
+
+ggsave("../Plots/Fig_3.png", width = 12, height = 8)
+ggsave("../Plots/Fig_3.pdf", width = 12, height = 8)
+
+```
+
+## List of species of high conseravtion importance
+
+```{r conservation-spp-table}
+
+conservation_spp<-unique(rbind(FDE_taxonomy, SIE_taxonomy))
+
+cons_table<-count_data |> 
+    filter(MF %in% conservation_spp$MF) |> 
+    group_by(MF, SP, scientificname, class, order, family, project) |> 
+    summarise(abundance = sum(total_abundance),
+              occupancy = length(unique(site_code))) |> 
+    mutate(FDE = MF %in% FDE_spp, SIE = MF %in% SIE_spp) |> 
+    pivot_wider(names_from = project, values_from = c(abundance, occupancy)) |>
+    NA20() |> 
+    ungroup() |> 
+    select(-SP)
+
+cnames<-c(colnames(cons_table)[1:7],rep(unique(count_data$project), 2))
+
+kbl(cons_table, col.names = cnames, caption = "Sum abundances and the number of occupies transects of Azorean arthropod species of high conservations interest, i.e. single island endemics (SIE) and forest dependent endemics (FDE), separated by sampling campaigns (BALA).")|> 
+    kable_styling(
+        bootstrap_options = c("striped", "hover", "condensed", "responsive")) |> 
+    add_header_above(c(" " = 7, "Abundance" = 3, "Occupancy" = 3))
+    
+    
+
+```
+
+```{asis fig-4-text, echo = params$show}
+## Figure 4
+```
+
+```{r figure-4, fig.cap="Figure 4 in paper", fig.dim=c(10, 12), include = params$show}
+cons_spp_dat<-all_sp_trend_results[(all_sp_trend_results$FDE | all_sp_trend_results$SIE) & !is.na(all_sp_trend_results$effsize), ]
+
+unique(cons_spp_dat$SP)
+
+SP_ord<-cons_spp_dat |> 
+    group_by(SP) |> 
+    summarise(mCd = sum(effsize), trend = sort(trend)[1]) |> 
+    arrange(desc(trend), mCd) |> 
+    #arrange(trend, mCd) |> 
+    pull(SP)
+
+cons_spp_dat$SP<-factor(cons_spp_dat$SP, ordered = T, levels = SP_ord)
+cons_spp_dat$sampling_method<-as.factor(cons_spp_dat$sampling_method)
+levels(cons_spp_dat$sampling_method)<-c("Canopy", "Ground")
+cons_spp_dat$conf.low<-as.numeric(cons_spp_dat$conf.low)
+cons_spp_dat$conf.high<-as.numeric(cons_spp_dat$conf.high)
+
+
+fig_4<-cons_spp_dat |>
+    ggplot(aes(y =SP)) +
+    # geom_rect(aes(fill = comparison),xmin = -Inf,xmax = Inf,
+    #           ymin = -Inf,ymax = Inf, alpha = 0.01) +
+    geom_point(aes(x=effsize, group = sampling_method, 
+                   shape = sampling_method, color = trend), size=5,
+               position = position_dodge(width = 0.5), alpha = 0.5) +
+    # geom_point(data = . %>% filter(sampling_method=="beating"), 
+    #            aes(x=effsize), shape=16, size=3, color = "orangered4",
+    #            position = position_nudge(y = -0.1), alpha = 0.5) +
+    geom_linerange(aes(xmin=conf.low, xmax=conf.high, group = sampling_method, 
+                       linetype = sampling_method, color = trend),
+                   position = position_dodge(width = 0.5)) +
+    # geom_linerange(data = . %>% filter(sampling_method=="beating"),
+    #                aes(xmin=conf.low, xmax=conf.high), color = "orangered4",
+    #                position = position_nudge(y = -0.1)) +
+    geom_vline(xintercept = 0, linetype="dashed", color = "grey") +
+    labs(x="Cohen's d", y="Species", shape = "Layer", 
+         linetype = "Layer")+
+    facet_wrap(~comparison, ncol = 3,
+               scales="free_x")+
+    theme_bw()+
+    scale_x_continuous(trans = pseudolog10_trans)+
+    # scale_fill_manual(values = adjustcolor(c("lemonchiffon4", "lemonchiffon1", "lemonchiffon3"), alpha.f = 0.3))+
+    scale_color_manual(values = adjustcolor(c( "#d55e00", "cornsilk4","#0072b2"), 
+                                            alpha.f = 0.8), name = "Trend")+
+    scale_shape_manual(values = c(17, 16))+
+    guides(fill = "none") +
+    theme(text = element_text(size = 15),
+          axis.text.y = element_text(face = "italic"))
+
+print(fig_4)
+ggsave("../Plots/Fig_4.png", fig_4, width = 10, height = 12)
+ggsave("../Plots/Fig_4.pdf", fig_4, width = 10, height = 12)
+
+```
+
+## Rare species with not enough data for analysis
+
+
+```{r rare-spp, results='asis'}
+NA_trends<-all_sp_trend_results |> 
+    filter(is.na(trend)) |>
+    select(MF) %>% 
+    distinct %>% 
+    pull(MF)
+
+
+
+NON_NA_trends<-all_sp_trend_results |> 
+    filter(!is.na(trend)) |> 
+    select(MF) %>% 
+    distinct %>% 
+    pull(MF)
+
+# How many species could have been analysed
+
+cat(length(NON_NA_trends), "were abundant enough to be included in the full analysis.\n\n")
+
+
+all_m<-count_data %>% 
+    group_by(MF, establishmentmeans, project, site_code) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(MF, establishmentmeans) %>% 
+    mutate(MF_max = max(abu)) %>%
+    pivot_wider(names_from = project, values_from = c(abu)) %>% 
+    mutate(across(c(BALA1, BALA2, BALA3), NA20)) %>% 
+    filter(sum(BALA1, BALA2, BALA3)>0) %>% 
+    mutate(B1_B2_val_diff = BALA2 - BALA1,
+           B1_B3_val_diff = BALA3 - BALA1,
+           B2_B3_val_diff = BALA3 - BALA2,
+           B1_B2_std_diff = (BALA2 - BALA1)/MF_max,
+           B1_B3_std_diff = (BALA3 - BALA1)/MF_max,
+           B2_B3_std_diff = (BALA3 - BALA2)/MF_max) %>% 
+    left_join(pitfall_year_diffs, by = "site_code") %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff) |> 
+    filter(!MF %in% NON_NA_trends) |> 
+    select(MF, establishmentmeans, BALA1, BALA2, BALA3) |> 
+    group_by(MF, establishmentmeans) |> 
+    summarise(sum_B1 = sum(BALA1), 
+              sum_B2 = sum(BALA2), 
+              sum_B3 = sum(BALA3),
+              allsum = sum(BALA1+BALA2+BALA3),
+              BALA1_site = length(BALA1[BALA1>0]),
+              BALA2_site = length(BALA2[BALA2>0]),
+              BALA3_site = length(BALA3[BALA3>0])) |> 
+    mutate(B1_B2_trend = factor(case_when(sum_B2-sum_B1 > 0 ~ "Increase",
+                                          sum_B2-sum_B1 < 0 ~ "Decrease",
+                                          .default = "No change"),
+                                ordered = T, levels = c("Decrease", "No change", "Increase")),
+           # B1_B3_trend = factor(case_when(sum_B3-sum_B1 > 0 ~ "Increase",
+           #                                sum_B3-sum_B1 < 0 ~ "Decrease",
+           #                                .default = "No change"),
+           #                      ordered = T, levels = c("Decrease", "No change", "Increase")),
+           B1_B3_trend = factor(case_when(sum_B3-sum_B1 > 0 & 
+                                              abs(sum_B3-sum_B1) > sum_B1*0.2 ~ "Increase",
+                                          sum_B3-sum_B1 < 0 & 
+                                              abs(sum_B3-sum_B1) > sum_B1*0.2 ~ "Decrease",
+                                          .default = "No change"),
+                                ordered = T, levels = c("Decrease", "No change", "Increase")),
+           B2_B3_trend = factor(case_when(sum_B3-sum_B2 > 0 ~ "Increase",
+                                          sum_B3-sum_B2 < 0 ~ "Decrease",
+                                          .default = "No change"),
+                                ordered = T, levels = c("Decrease", "No change", "Increase"))) %>% 
+    mutate(B1_B2_occupancy = factor(case_when(BALA2_site-BALA1_site > 0 ~ "Increase",
+                                              BALA2_site-BALA1_site  < 0 ~ "Decrease",
+                                              .default = "No change"),
+                                    ordered = T, levels = c("Decrease", "No change", "Increase")),
+           B1_B3_occupancy = factor(case_when(BALA3_site-BALA1_site  > 0 ~ "Increase",
+                                              BALA3_site-BALA1_site < 0 ~ "Decrease",
+                                              .default = "No change"),
+                                    ordered = T, levels = c("Decrease", "No change", "Increase")),
+           B2_B3_occupancy = factor(case_when(BALA3_site-BALA2_site > 0 ~ "Increase",
+                                              BALA3_site-BALA2_site < 0 ~ "Decrease",
+                                              .default = "No change"),
+                                    ordered = T, levels = c("Decrease", "No change", "Increase")),
+           SIE = MF %in% SIE_spp,
+           FDE = MF %in% FDE_spp) |> 
+    mutate(cons_spp = SIE | FDE) |> 
+    arrange(desc(allsum))
+
+
+t1<-table(all_m$B1_B3_trend)
+t2<-table(all_m$B1_B3_trend)/sum(table(all_m$B1_B3_trend))*100
+
+cat("Altogether, ", 
+    t1[[1]],  " (", round(t2[[1]], 2), "%), species occurred in less transects in B3 than in B1, ", t1[[2]], " (", round(t2[[2]], 2), "%) showed no change and ", t1[[3]], " (", round(t2[[3]], 2), "%) occured in more transects.",
+    sep = "")
+
+all_trend_contingency<-table(all_m$B1_B3_trend, all_m$establishmentmeans)
+# all_trend_contingency[1,]/186
+
+all_trend_contingency|> 
+    kbl(caption = "Number of species showing different abundance trends across diferent biogeographic origin.") |> 
+    kable_classic(full_width = F)
+cat("\n\n")
+all_trend_contingency|>
+    prop.table(margin = 2) |>
+    (\(x) x * 100)() |> 
+    kbl(caption = "Proportion of species showing different abundance trends across diferent biogeographic origin.") |> 
+    kable_classic(full_width = F)
+cat("\n\n")
+
+# testing if endemics increase more than exotics
+all_trend_contingency2<-as.matrix(rbind(c(all_trend_contingency[3,1],
+                                          sum(all_trend_contingency[1:2,1])), 
+                                        c(all_trend_contingency[3,2],
+                                          sum(all_trend_contingency[1:2,2]))))
+
+rownames(all_trend_contingency2)<-c("END", "EXO")
+colnames(all_trend_contingency2)<-c("Increase", "No increase")
+
+ft1<-fisher.test(all_trend_contingency2, alternative = "greater",  
+            simulate.p.value = TRUE, B=1e7)
+
+
+cat("There is no evidence that the abundance of endemic species increases in greater proportion than that of introduced (Fisher’s Test with simulated p-values; p = ", round(ft1$p.value, 3), ", odds ratio = ", round(ft1$estimate, 3),", 95% CI: ", round(ft1$conf.int, 3)[1], " - ", round(ft1$conf.int, 3)[2], ").", sep = "")
+
+
+# testing if endemics decline more than exotics
+all_trend_contingency2<-as.matrix(rbind(c(all_trend_contingency[1,1],
+                                          sum(all_trend_contingency[2:3,1])), 
+                                        c(all_trend_contingency[1,2],
+                                          sum(all_trend_contingency[2:3,2]))))
+
+rownames(all_trend_contingency2)<-c("END", "EXO")
+colnames(all_trend_contingency2)<-c("Decline", "No decline")
+
+ft2<-fisher.test(all_trend_contingency2, alternative = "less",  
+            simulate.p.value = TRUE, B=1e7)
+
+# fisher.test(all_trend_contingency2, 
+#             simulate.p.value = TRUE, B=1e7)
+
+
+cat("There is no evidence that the abundance of endemic species declines in greater proportion than that of introduced (Fisher’s Test with simulated p-values; p = ", round(ft2$p.value, 3), ", odds ratio = ", round(ft2$estimate, 3),", 95% CI: ", round(ft2$conf.int, 3)[1], " - ", round(ft2$conf.int, 3)[2], ").", sep = "")
+
+# testing if endemics and natives increase more than exotics
+all_trend_contingency2<-as.matrix(rbind(c(sum(all_trend_contingency[3,c(1,3)]),
+                                          sum(all_trend_contingency[1:2, c(1,3)])), 
+                                        c(all_trend_contingency[3,2],
+                                          sum(all_trend_contingency[1:2,2]))))
+
+rownames(all_trend_contingency2)<-c("ENDNAT", "EXO")
+colnames(all_trend_contingency2)<-c("Increase", "No increase")
+
+# fisher.test(all_trend_contingency2, alternative = "less",  
+#             simulate.p.value = TRUE, B=1e7)
+# fisher.test(all_trend_contingency2,
+#             simulate.p.value = TRUE, B=1e7)
+
+# testing if endemics and natives decline more than exotics
+all_trend_contingency2<-as.matrix(rbind(c(sum(all_trend_contingency[1,c(1,3)]),
+                                          sum(all_trend_contingency[2:3,c(1,3)])), 
+                                        c(all_trend_contingency[1,2],
+                                          sum(all_trend_contingency[2:3,2]))))
+
+rownames(all_trend_contingency2)<-c("ENDNAT", "EXO")
+colnames(all_trend_contingency2)<-c("Decline", "No decline")
+
+# fisher.test(all_trend_contingency2, alternative = "less",  
+#             simulate.p.value = TRUE, B=1e7)
+
+
+#### testing for conservation spp
+cat("\n\n")
+table(all_m$B1_B3_trend, all_m$cons_spp) |> 
+    kbl(caption = "Number of species showing different abundance trends separated whether they are of high conservation importnace.") |> 
+    kable_classic(full_width = F)
+
+cat("\n\n")
+
+table(all_m$B1_B3_trend, all_m$FDE)|> 
+    kbl(caption = "Number of species showing different abundance trends separated whether they are forest-dependent endemics.") |> 
+    kable_classic(full_width = F)
+
+cat("\n\n")
+
+all_trend_contingency<-t(table(all_m$B1_B3_trend, all_m$cons_spp)[, c(2,1)])
+
+# prop.table(all_trend_contingency, margin = 2) * 100
+# 
+# fisher.test(all_trend_contingency, 
+#             simulate.p.value = TRUE, B=1e7)
+
+all_trend_contingency<-as.matrix(rbind(c(table(all_m[all_m$cons_spp, "B1_B3_trend"])[1],
+                                         sum(table(all_m[all_m$cons_spp, "B1_B3_trend"])[2:3])),
+                                       c(table(all_m[all_m$establishmentmeans=="EXO",
+                                                     "B1_B3_trend"])[1],
+                                         sum(table(all_m[all_m$establishmentmeans=="EXO",
+                                                         "B1_B3_trend"])[2:3]))))
+
+rownames(all_trend_contingency)<-c("COnservation spp", "EXO")
+colnames(all_trend_contingency)<-c("Decrease", "Increase")
+
+
+# prop.table(all_trend_contingency, margin = 2) * 100
+# 
+# fisher.test(all_trend_contingency, 
+#             simulate.p.value = TRUE, B=1e7)
+
+
+all_trend_contingency<-as.matrix(rbind(c(table(all_m[all_m$cons_spp, "B1_B3_trend"])[3],
+                                         sum(table(all_m[all_m$cons_spp, "B1_B3_trend"])[1:2])),
+                                       c(table(all_m[all_m$establishmentmeans=="EXO", "B1_B3_trend"])[3],
+                                         sum(table(all_m[all_m$establishmentmeans=="EXO", "B1_B3_trend"])[1:2]))))
+rownames(all_trend_contingency)<-c("COnservation spp", "EXO")
+colnames(all_trend_contingency)<-c("Increase", "Decrease/No change")
+
+# prop.table(all_trend_contingency, margin = 2) * 100
+# 
+# fisher.test(all_trend_contingency, 
+#             simulate.p.value = TRUE, B=1e7, alternative = "less")
+
+
+```
+
+# Changes in the number of sites occupied
+
+We recorded the presence of each species at each site during each sampling campaign and examined whether the number of sites occupied by each species increased or decreased between campaigns (approximately every 10 years).
+
+```{r occupancy, results='asis'}
+# all species, including those which were included in the full statistical analysis
+
+sp_occupacy<-count_data %>% 
+    group_by(project, MF, establishmentmeans) %>% 
+    summarise(presence = n_distinct(site_code)) %>% 
+    pivot_wider(names_from = project, values_from = presence) |> 
+    NA20() |> 
+    mutate(B1_B2_val_diff = BALA2-BALA1,
+              B1_B3_val_diff = BALA3-BALA1,
+              B2_B3_val_diff = BALA3-BALA2,
+              B1_B2_std_diff = (BALA2-BALA1)/BALA1,
+              B1_B3_std_diff = (BALA3-BALA1)/BALA1,
+              B2_B3_std_diff = (BALA3-BALA2)/BALA2)
+
+
+cnames=c("Decrease", "No change", "Increase")
+
+t1<-table(sign(sp_occupacy$B1_B3_val_diff)) 
+cat("Altogether (including all species)", t1[[1]], "species occurred in less transects in B3 than in B1,", t1[[2]], "showed no change and", t1[[3]], "occured in more transects.")
+        
+t2<-table(sign(sp_occupacy$B1_B3_val_diff),
+      sp_occupacy$establishmentmeans)|> 
+    as.matrix() 
+rownames(t2)<-cnames
+cat("\n\n")
+kbl(t2, caption = "Changes in site occupancy of species with diferent biogeographic origin, including all species.")|> 
+    kable_classic(full_width = F)
+cat("\n\n")
+# only species with not enough data for analysis
+t3<-table(all_m$B1_B3_occupancy)
+t4<-table(all_m$B1_B3_occupancy)/sum(table(all_m$B1_B3_occupancy))
+
+cat("\n\n")
+cat("Of those spcies which were excluded from the full statistical analysis, ", 
+    t3[[1]],  " (", round(t4[[1]], 2), "%), species occurred in less transects in B3 than in B1, ", t3[[2]], " (", round(t4[[2]], 2), "%) showed no change and ", t3[[3]], " (", round(t4[[3]], 2), "%) occured in more transects.",
+    sep = "")
+cat("\n\n")
+
+all_occupancy_contingency<-table(all_m$B1_B3_occupancy, all_m$cons_spp)[, c(2,1)]
+
+
+all_occupancy_contingency2<-t(as.matrix(rbind(c(all_occupancy_contingency[3,1], 
+                                              sum(all_occupancy_contingency[1:2,1])), 
+                                            c(all_occupancy_contingency[3,2], 
+                                              sum(all_occupancy_contingency[1:2,2])))))
+
+rownames(all_occupancy_contingency2)<-c("CONS", "NON-CONS")
+colnames(all_occupancy_contingency2)<-c("Increase", "No increase")
+
+# fisher.test(all_occupancy_contingency2, alternative = "less",  
+#             simulate.p.value = TRUE, B=1e7)
+
+
+
+```
+
+# The influence of islands on biodiversity trends
+
+```{r island-influence-prep}
+# All islands and 2-3 island combinations
+comb_2<-as.list(combn(unique(count_data$island), 2, simplify = F))
+comb_3<-as.list(combn(unique(count_data$island), 3, simplify = F))
+
+isl_combinations<-c(unique(count_data$island), comb_2, comb_3)
+```
+
+## The influence of island removal on abundances
+
+```{r island-influence-overall-abundance, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the overall abundance changes between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+all_abu_trends<-count_data %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_abundance = sum(total_abundance),
+              total_adults = sum(total_adults)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = abu[project == "BALA2"] - abu[project == "BALA1"],
+              B1_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA1"],
+              B2_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA2"],
+              B1_B2_std_diff = (abu[project == "BALA2"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B1_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B2_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA2"])/abu[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_all_abu_changes<-all_abu_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_all_abu_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+
+
+# Calculating trends after removing islnads or island combinations
+isl_rem_sim_ABU_list<-lapply(isl_combinations, function(x){
+
+mean_all_abu_changes<-all_abu_trends %>%
+    ungroup() %>%
+    filter(!island %in% x) |> 
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_all_abu_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+B1_B3$removed<-paste(x, collapse = ",")
+B1_B3
+
+})
+
+isl_rem_sim<-do.call("rbind", isl_rem_sim_ABU_list)
+
+# Plotting
+isl_rem_sim |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                    ymin = -Inf,ymax = Inf), 
+              fill = "salmon", alpha = 0.4) +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize), size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method),
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+
+
+```
+
+```{r island-influence-endemic-abundance, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the abundance changes of endemic species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+END_abu_trends<-count_data %>% 
+    filter(establishmentmeans == "END") %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_abundance = sum(total_abundance),
+              total_adults = sum(total_adults)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = abu[project == "BALA2"] - abu[project == "BALA1"],
+              B1_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA1"],
+              B2_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA2"],
+              B1_B2_std_diff = (abu[project == "BALA2"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B1_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B2_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA2"])/abu[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_END_abu_changes<-END_abu_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3_END<-mean_END_abu_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+
+isl_rem_sim_ABU_END_list<-lapply(isl_combinations, function(x){
+    
+    mean_END_abu_changes<-END_abu_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3_END<-mean_END_abu_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3_END$removed<-paste(x, collapse = ",")
+    B1_B3_END
+    
+})
+
+isl_rem_sim_ABU_END<-do.call("rbind", isl_rem_sim_ABU_END_list)
+
+
+isl_rem_sim_ABU_END |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                    ymin = -Inf,ymax = Inf), 
+              fill = "salmon", alpha = 0.4) +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize), size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method),
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+```{r island-influence-introduced-abundance, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the abundance changes of introduces species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+EXO_abu_trends<-count_data %>% 
+    filter(establishmentmeans == "EXO") %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_abundance = sum(total_abundance),
+              total_adults = sum(total_adults)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = abu[project == "BALA2"] - abu[project == "BALA1"],
+              B1_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA1"],
+              B2_B3_val_diff = abu[project == "BALA3"] - abu[project == "BALA2"],
+              B1_B2_std_diff = (abu[project == "BALA2"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B1_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA1"])/abu[project == "BALA1"],
+              B2_B3_std_diff = (abu[project == "BALA3"] - abu[project == "BALA2"])/abu[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_EXO_abu_changes<-EXO_abu_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3_EXO<-mean_EXO_abu_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+
+isl_rem_sim_ABU_EXO_list<-lapply(isl_combinations, function(x){
+    
+    mean_EXO_abu_changes<-EXO_abu_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3_EXO<-mean_EXO_abu_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3_EXO$removed<-paste(x, collapse = ",")
+    B1_B3_EXO
+    
+})
+
+isl_rem_sim_ABU_EXO<-do.call("rbind", isl_rem_sim_ABU_EXO_list)
+
+
+isl_rem_sim_ABU_EXO |> 
+    ggplot() +
+    geom_rect(data = B1_B3_EXO, aes(xmin = conf.low, xmax = conf.high,
+                                    ymin = -Inf,ymax = Inf), 
+              fill = "salmon", alpha = 0.4) +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize), size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method),
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3_EXO, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+
+
+```
+
+## The influence of island removal on biomass
+
+```{r island-influence-overall-biomass, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the overall biomass changes between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+all_biomass_trends<-biomass_data %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_biomass = sum(adult_mass)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(biomass = sum(total_biomass)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = biomass[project == "BALA2"] - biomass[project == "BALA1"],
+              B1_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA1"],
+              B2_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA2"],
+              B1_B2_std_diff = (biomass[project == "BALA2"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B1_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B2_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA2"])/biomass[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_all_biomass_changes<-all_biomass_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_all_biomass_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+# Calculating trends after removing islnads or island combinations
+isl_rem_sim_Biom_list<-lapply(isl_combinations, function(x){
+    
+    mean_all_biomass_changes<-all_biomass_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3<-mean_all_biomass_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3$removed<-paste(x, collapse = ",")
+    B1_B3
+    
+})
+
+isl_rem_sim<-do.call("rbind", isl_rem_sim_Biom_list)
+
+# Plotting
+isl_rem_sim |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+```{r island-influence-endemic-biomass, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the biomass changes of endemic species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+END_biomass_trends<-biomass_data %>% 
+    filter(establishmentmeans == "END") %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_biomass = sum(adult_mass)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(biomass = sum(total_biomass)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = biomass[project == "BALA2"] - biomass[project == "BALA1"],
+              B1_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA1"],
+              B2_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA2"],
+              B1_B2_std_diff = (biomass[project == "BALA2"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B1_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B2_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA2"])/biomass[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_END_biomass_changes<-END_biomass_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_END_biomass_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+# Calculating trends after removing islnads or island combinations
+isl_rem_sim_Biom_END_list<-lapply(isl_combinations, function(x){
+    
+    mean_all_biomass_changes<-END_biomass_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3<-mean_all_biomass_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3$removed<-paste(x, collapse = ",")
+    B1_B3
+    
+})
+
+isl_rem_sim<-do.call("rbind", isl_rem_sim_Biom_END_list)
+
+# Plotting
+isl_rem_sim |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+```{r island-influence-introduced-biomass, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the biomass changes of introduces species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+EXO_biomass_trends<-biomass_data %>% 
+    filter(establishmentmeans == "EXO") %>% 
+    group_by(project, year, island, fragment_name, site_code, sampling_method,MF, establishmentmeans) %>% 
+    summarise(total_biomass = sum(adult_mass)) %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(biomass = sum(total_biomass)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = biomass[project == "BALA2"] - biomass[project == "BALA1"],
+              B1_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA1"],
+              B2_B3_val_diff = biomass[project == "BALA3"] - biomass[project == "BALA2"],
+              B1_B2_std_diff = (biomass[project == "BALA2"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B1_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA1"])/biomass[project == "BALA1"],
+              B2_B3_std_diff = (biomass[project == "BALA3"] - biomass[project == "BALA2"])/biomass[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_EXO_biomass_changes<-EXO_biomass_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_EXO_biomass_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+# Calculating trends after removing islnads or island combinations
+isl_rem_sim_Biom_EXO_list<-lapply(isl_combinations, function(x){
+    
+    mean_EXO_biomass_changes<-EXO_biomass_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3<-mean_EXO_biomass_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3$removed<-paste(x, collapse = ",")
+    B1_B3
+    
+})
+
+isl_rem_sim<-do.call("rbind", isl_rem_sim_Biom_EXO_list)
+
+# Plotting
+isl_rem_sim |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+## The influence of island removal on species richness
+
+```{r island-influence-overall-richness, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the overall species richness changes between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+all_richness_trends<-count_data %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(richness = n_distinct(MF)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = richness[project == "BALA2"] - richness[project == "BALA1"],
+              B1_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA1"],
+              B2_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA2"],
+              B1_B2_std_diff = (richness[project == "BALA2"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B1_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B2_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA2"])/richness[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_all_richness_changes<-all_richness_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3<-mean_all_richness_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+# Calculating trends after removing islnads or island combinations
+isl_rem_sim_Rich_list<-lapply(isl_combinations, function(x){
+    
+    mean_all_abu_changes<-all_richness_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3<-mean_all_abu_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3$removed<-paste(x, collapse = ",")
+    B1_B3
+    
+})
+
+isl_rem_sim<-do.call("rbind", isl_rem_sim_Rich_list)
+
+# Plotting
+isl_rem_sim |> 
+    ggplot() +
+    geom_rect(data = B1_B3, aes(xmin = conf.low, xmax = conf.high,
+                                    ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+```{r island-influence-endemic-richness, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the species richness changes of endemic species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+END_richness_trends<-count_data %>% 
+    filter(establishmentmeans == "END") %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(richness = n_distinct(MF)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = richness[project == "BALA2"] - richness[project == "BALA1"],
+              B1_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA1"],
+              B2_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA2"],
+              B1_B2_std_diff = (richness[project == "BALA2"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B1_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B2_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA2"])/richness[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_END_richness_changes<-END_richness_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3_END_richness<-mean_END_richness_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+
+isl_rem_sim_Rich_END_list<-lapply(isl_combinations, function(x){
+    
+    mean_END_richness_changes<-END_richness_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3_END_richness<-mean_END_richness_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3_END_richness$removed<-paste(x, collapse = ",")
+    B1_B3_END_richness
+    
+})
+
+isl_rem_sim_Rich_END<-do.call("rbind", isl_rem_sim_Rich_END_list)
+
+
+isl_rem_sim_Rich_END |> 
+    ggplot() +
+    geom_rect(data = B1_B3_END_richness, aes(xmin = conf.low, xmax = conf.high,
+                                    ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3_END_richness, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+```{r island-influence-introduced-richness, fig.dim=c(8, 16)}
+#| fig.cap=
+#| "Results of the simulated island removal on the species richness changes of introduced species between B1 and B3. Cohen d-s and corresponding confidence intervals are shown in black markings. Dashed vertical red line indicates the Cohen d calculated before any island removal and pink shaded area indicate confidence intervals"
+
+EXO_richness_trends<-count_data %>% 
+    filter(establishmentmeans == "EXO") %>% 
+    group_by(site_code, project, year, island, sampling_method) %>% 
+    summarise(richness = n_distinct(MF)) %>% 
+    group_by(site_code, sampling_method, island) %>% 
+    summarise(B1_B2_val_diff = richness[project == "BALA2"] - richness[project == "BALA1"],
+              B1_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA1"],
+              B2_B3_val_diff = richness[project == "BALA3"] - richness[project == "BALA2"],
+              B1_B2_std_diff = (richness[project == "BALA2"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B1_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA1"])/richness[project == "BALA1"],
+              B2_B3_std_diff = (richness[project == "BALA3"] - richness[project == "BALA2"])/richness[project == "BALA2"],
+              B1_B2_year_diff = year[project == "BALA2"] - year[project == "BALA1"],
+              B1_B3_year_diff = year[project == "BALA3"] - year[project == "BALA1"],
+              B2_B3_year_diff = year[project == "BALA3"] - year[project == "BALA2"]) %>% 
+    mutate(B1_B2__yearly_change = B1_B2_val_diff/B1_B2_year_diff,
+           B1_B3__yearly_change = B1_B3_val_diff/B1_B3_year_diff,
+           B2_B3__yearly_change = B2_B3_val_diff/B2_B3_year_diff,
+           B1_B2__std_yearly_change = B1_B2_std_diff/B1_B2_year_diff,
+           B1_B3__std_yearly_change = B1_B3_std_diff/B1_B3_year_diff,
+           B2_B3__std_yearly_change = B2_B3_std_diff/B2_B3_year_diff)
+
+mean_EXO_richness_changes<-EXO_richness_trends %>%
+    ungroup() %>%
+    select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+    group_by(sampling_method, site_code) %>% 
+    summarise_all(mean) %>% 
+    mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+    group_by(sampling_method) %>% 
+    select(-site_code) 
+
+B1_B3_EXO_richness<-mean_EXO_richness_changes %>%     
+    cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+    select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+    mutate(comparison = substr(.y., 1, 5)) %>% 
+    select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+
+
+isl_rem_sim_Rich_EXO_list<-lapply(isl_combinations, function(x){
+    
+    mean_EXO_richness_changes<-EXO_richness_trends %>%
+        ungroup() %>%
+        filter(!island %in% x) |> 
+        select(sampling_method, site_code,B1_B2__yearly_change, B1_B3__yearly_change, B2_B3__yearly_change) %>% 
+        group_by(sampling_method, site_code) %>% 
+        summarise_all(mean) %>% 
+        mutate(across(where(is.numeric), \(x) scale(x, center = F))) %>% 
+        group_by(sampling_method) %>% 
+        select(-site_code) 
+    
+    B1_B3_EXO_richness<-mean_EXO_richness_changes %>%     
+        cohens_d(B1_B3__yearly_change ~ 1, mu = 0, ci = T) %>% 
+        select(`.y.`, sampling_method, effsize, magnitude, conf.low, conf.high) %>% 
+        mutate(comparison = substr(.y., 1, 5)) %>% 
+        select(comparison, sampling_method, effsize, magnitude, conf.low, conf.high)
+    
+    B1_B3_EXO_richness$removed<-paste(x, collapse = ",")
+    B1_B3_EXO_richness
+    
+})
+
+isl_rem_sim_Rich_EXO<-do.call("rbind", isl_rem_sim_Rich_EXO_list)
+
+
+isl_rem_sim_Rich_EXO |> 
+    ggplot() +
+    geom_rect(data = B1_B3_EXO_richness, aes(xmin = conf.low, xmax = conf.high,
+                                             ymin = -Inf,ymax = Inf), alpha = 0.4, fill = "salmon") +
+    geom_point(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                   x=effsize),
+               size=3, alpha = 0.5) +
+    geom_linerange(aes(y = reorder_within(removed, effsize, within = sampling_method), 
+                       xmin=conf.low, xmax=conf.high)) +
+    geom_vline(data = B1_B3_EXO_richness, aes(xintercept = effsize), linetype="dashed", color = "red") +
+    labs(x="Log Cohen's d and CIs", y="Species")+
+    facet_wrap(~sampling_method, ncol = 2,
+               scales="free")+
+    theme_classic()+
+    theme(text = element_text(size = 15))
+```
+
+# Sample removal sensitivity analysis
+
+```{r sample-removal, message=FALSE, fig.cap=paste("The effect of simulated sample removal on the measured effect sizes between", c("B1 and B3", "B1 and B2", "B2 and B3"), "sampling campaigns. Effects are separated by datasets and sampling methods, and differently coloured lines indicate the effects on all (ALL), endemic (END), introduces (EXO), and native (NAT) species."), fig.dim = c(10, 12)}
+
+
+origin_cols<-c(origin_cols, ALL = "navyblue")
+
+simulation_df$sampling_method<-
+    case_when(simulation_df$sampling_method=="Beating" ~ "Canopy",
+              simulation_df$sampling_method=="Pitfall" ~ "Ground")
+
+simulation_df$filter<-factor(simulation_df$filter, ordered = T, 
+                             levels = c("ALL", "END", "NAT", "EXO"))
+
+B1_B3_plot<-simulation_df |> filter(comparison=="B1_B3") |> 
+    group_by(sampling_method, measure, filter, data_retained) |> 
+    summarise(effsize = mean(effsize), 
+              conf.low = min(conf.low),
+              conf.high = max(conf.high)) |>
+    
+    ggplot(aes(x = data_retained, color = filter))+
+    #geom_line(size = 1.5)+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.high))+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.low))+
+    geom_smooth(method = "loess", span = 0.3, size = 1,
+                aes(y = effsize))+
+    scale_x_reverse()+
+    facet_grid(sampling_method~measure)+
+    labs(x = "Data included (% of original)",
+         y = "Cohen's D")+
+    ggtitle("B1 - B3")
+
+
+B1_B2_plot<-simulation_df |> filter(comparison=="B1_B2") |> 
+    group_by(sampling_method, measure, filter, data_retained) |> 
+    summarise(effsize = mean(effsize), 
+              conf.low = min(conf.low),
+              conf.high = max(conf.high)) |> 
+
+    ggplot(aes(x = data_retained, color = filter))+
+    #geom_line(size = 1.5)+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.high))+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.low))+
+    geom_smooth(method = "loess", span = 0.3, size = 1,
+                aes(y = effsize))+
+    scale_x_reverse()+
+    facet_grid(sampling_method~measure)+
+    labs(x = "Data included (% of original)",
+         y = "Cohen's D")+
+    ggtitle("B1 - B2")
+
+B2_B3_plot<-simulation_df |> filter(comparison=="B2_B3") |> 
+    group_by(sampling_method, measure, filter, data_retained) |> 
+    summarise(effsize = mean(effsize), 
+              conf.low = min(conf.low),
+              conf.high = max(conf.high)) |> 
+ 
+    ggplot(aes(x = data_retained, color = filter))+
+    #geom_line(size = 1.5)+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.high))+
+    geom_smooth(method = "loess", span = 0.3, size = .7,
+                se = F,
+                lty = "dotted",
+                aes(y = conf.low))+
+    geom_smooth(method = "loess", span = 0.3, size = 1,
+                aes(y = effsize))+
+    scale_x_reverse()+
+    facet_grid(sampling_method~measure)+
+    labs(x = "Data included (% of original)",
+         y = "Cohen's D")+
+    ggtitle("B2 - B3")
+
+print(B1_B3_plot)
+print(B1_B2_plot)
+print(B2_B3_plot)
+
+```
+
+# Sensitivity analysis for decline threshold value
+
+In this study, we used a 20% difference in abundance between the first and last sampling campaigns as a threshold to distinguish between change in abundance or no change. Here, we show how choosing different values would influence the number of species considered as declining, experiencing no change, or increasing.
+
+```{r decline-threshold-sensitivity, message=FALSE, fig.cap = "The dependence of how species trends are categorised on the definition of the threshold value for all (ALL), endemic (END), native (NAT), introduced species (EXO) and thos of high conservation importance (CONS), i.e. single island endemics and forest-dependent endemics together."}
+
+#### Species trends without enough data
+
+NA_trends<-all_sp_trend_results |> 
+    filter(is.na(effsize)) |> 
+    pull(MF)
+
+NON_NA_trends<-all_sp_trend_results |> 
+    filter(!is.na(effsize)) |> 
+    select(MF) %>% 
+    distinct %>% 
+    pull(MF)
+
+# length(NON_NA_trends)
+
+th_dat<-NULL
+
+for (th in seq(from = 0, to = 0.6, by = 0.05))
+{
+all_m<-count_data %>% 
+    group_by(MF, establishmentmeans, project) %>% 
+    summarise(abu = sum(total_abundance)) %>% 
+    group_by(MF, establishmentmeans) %>% 
+    mutate(MF_max = max(abu)) %>%
+    pivot_wider(names_from = project, values_from = c(abu)) %>% 
+    mutate(across(c(BALA1, BALA2, BALA3), NA20)) %>% 
+    filter(sum(BALA1, BALA2, BALA3)>0) %>% 
+    mutate(B1_B3_val_diff = BALA3 - BALA1,
+           allsum = sum(BALA1+BALA2+BALA3),
+           B1_B3_trend = factor(case_when(B1_B3_val_diff > 0 & 
+                                              abs(B1_B3_val_diff) > BALA1 *th ~ "Increase",
+                                          B1_B3_val_diff < 0 & 
+                                              abs(B1_B3_val_diff) > BALA1*th ~ "Decrease",
+                                          .default = "No change"),
+                                ordered = T, levels = c("Decrease", "No change", "Increase")),
+           SIE = MF %in% SIE_spp,
+           FDE = MF %in% FDE_spp,
+           cons_spp = SIE | FDE) |> 
+    filter(!MF %in% NON_NA_trends) |> 
+    arrange(desc(allsum))
+
+
+
+
+all_trend_contingency<-table(all_m$B1_B3_trend, all_m$establishmentmeans)
+
+grouped_spp<-melt(all_trend_contingency)[,c(2,1,3)]
+
+all_spp<-data.frame(group = "ALL", 
+                   trend = names(table(all_m$B1_B3_trend)), 
+                   value = rowSums(all_trend_contingency))
+
+colnames(grouped_spp)<-colnames(all_spp)
+
+
+cons_spp<-data.frame(group = "CONS", 
+                   trend = names(table(all_m$B1_B3_trend)), 
+                   value = table(all_m$B1_B3_trend, all_m$cons_spp)[,"TRUE"])
+
+dat<-rbind(grouped_spp, all_spp, cons_spp)
+dat$threshold<-th
+
+th_dat<-rbind(th_dat, dat)
+}
+
+threshold_plots<-th_dat |> 
+    ggplot(aes(x = threshold, y = value, color = trend))+
+           geom_smooth(method = "loess")+
+           geom_point()+
+    scale_colour_manual(values = c("salmon", "tan", "darkgreen"))+
+    xlab("Number of species")+
+           facet_wrap(~group, ncol = 2, scales = "free_y")
+
+print(threshold_plots)
+
+
+```
+```{asis various-test-text, echo = params$show}
+# Various tests
+```
+
+```{r correlation-test, include = params$show}
+aaa<-biomass_data |> 
+    group_by(site_code, project, sampling_method) |> 
+    summarise(sumabu = sum(total_abundance), sumbio = sum(adult_mass))
+
+
+print(corr.test(aaa$sumabu, aaa$sumbio, method = "spearman"), short=FALSE)
+
+print(corr.test(aaa$sumabu[aaa$sampling_method=="Pitfall"], 
+                aaa$sumbio[aaa$sampling_method=="Pitfall"], 
+                method = "spearman"), short=FALSE)
+
+print(corr.test(aaa$sumabu[aaa$sampling_method=="Beating"], 
+                aaa$sumbio[aaa$sampling_method=="Beating"], 
+                method = "spearman"), short=FALSE)
+```
+
+```{r abundance-quartiles, include=params$show}
+count_data |> 
+    group_by(MF) |> 
+    summarise(sum_abu = sum(total_abundance)) |> 
+    filter(sum_abu>2) |> 
+    reframe(fivenum = fivenum(sum_abu))
+```
