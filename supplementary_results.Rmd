@@ -10,7 +10,7 @@ output:
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
-      output_dir = "../Plots"
+      output_dir = "figures"
     )
   })
 params:
@@ -96,25 +96,25 @@ NA20<- function(x)
     x}
 
 
-source("trend_plots_function.R")
+source("src/trend_plots_function.R")
 ```
 
 ```{r load-data}
-load("../Raw_data/All_BALA_data.RDA")
-load("../Raw_data/conservation_spp.RDA")
+load("data/All_BALA_data.RDA")
+load("data/conservation_spp.RDA")
 
 
 # long processes, data is saved and loaded
-if (file.exists("../Calculated_data/all_trend_results.RDA")) {
-    load("../Calculated_data/all_trend_results.RDA")
+if (file.exists("data/all_trend_results.RDA")) {
+    load("data/all_trend_results.RDA")
 } else {
-    source("trends_wrapper.R")
+    source("src/trends_wrapper.R")
 }
 
-if (file.exists("../Calculated_data/simulation_df.RDA")) {
-    load("../Calculated_data/simulation_df.RDA")
+if (file.exists("data/simulation_df.RDA")) {
+    load("data/simulation_df.RDA")
 } else {
-    source("removing_data_points_simulation.R")
+    source("src/removing_data_points_simulation.R")
 }
 
 
